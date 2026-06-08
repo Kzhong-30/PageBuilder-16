@@ -29,13 +29,12 @@ export default function Toolbar() {
   const screenshotDataUrl = useStore((s) => s.screenshotDataUrl)
   const originalScreenshotDataUrl = useStore((s) => s.originalScreenshotDataUrl)
   const annotations = useStore((s) => s.annotations)
-  const canvasScale = useStore((s) => s.canvasScale)
 
   const handleExportPng = async () => {
     const dataUrl = await exportToPng(
       originalScreenshotDataUrl || screenshotDataUrl,
       annotations,
-      canvasScale
+      1
     )
     downloadDataUrl(dataUrl, 'annotation.png')
   }

@@ -6,7 +6,6 @@ export default function CompareView() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const originalScreenshotDataUrl = useStore((s) => s.originalScreenshotDataUrl)
   const annotations = useStore((s) => s.annotations)
-  const canvasScale = useStore((s) => s.canvasScale)
   const [baseImage, setBaseImage] = useState<HTMLImageElement | null>(null)
 
   useEffect(() => {
@@ -45,11 +44,8 @@ export default function CompareView() {
       }
     }
 
-    ctx.save()
-    ctx.scale(canvasScale, canvasScale)
     drawAllAnnotations(ctx, otherAnnotations, 1)
-    ctx.restore()
-  }, [baseImage, annotations, canvasScale])
+  }, [baseImage, annotations])
 
   return (
     <div style={{ display: 'flex', height: '100%', backgroundColor: '#1a1a2e' }}>

@@ -139,11 +139,6 @@ export function drawAllAnnotations(
   baseImage?: HTMLImageElement,
   selectedAnnotationId?: string | null
 ) {
-  ctx.save()
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-  ctx.restore()
-
   for (const ann of annotations) {
     drawAnnotation(ctx, ann, dpr, baseImage)
     if (selectedAnnotationId && ann.id === selectedAnnotationId) {

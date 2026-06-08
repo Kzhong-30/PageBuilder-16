@@ -86,7 +86,8 @@ export default function AnnotationCanvas() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     drawAllAnnotations(
@@ -96,8 +97,6 @@ export default function AnnotationCanvas() {
       baseImageLoaded ? imgRef.current || undefined : undefined,
       selectedAnnotationId
     )
-
-    ctx.restore()
   }, [annotations, imageNaturalSize, selectedAnnotationId, baseImageLoaded, zoom])
 
   const clampPan = useCallback((offX: number, offY: number) => {
@@ -124,11 +123,15 @@ export default function AnnotationCanvas() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return { x: ann.x, y: ann.y - 20, w: 100, h: 30 }
 
+    const dpr = zoom > 1 ? zoom : 1
     const fontSize = Math.max(ann.lineWidth * 6, 14)
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.font = `${fontSize}px "DM Sans", sans-serif`
     const metrics = ctx.measureText(ann.text || '文字标注')
     const textW = metrics.width
     const textH = fontSize * 1.2
+    ctx.restore()
 
     return {
       x: ann.x,
@@ -136,7 +139,7 @@ export default function AnnotationCanvas() {
       w: textW,
       h: textH + 4,
     }
-  }, [])
+  }, [zoom])
 
   useEffect(() => {
     if (!selectedAnnotationId || !containerRef.current) return
@@ -336,7 +339,8 @@ export default function AnnotationCanvas() {
       if (!ctx) return
 
       const dpr = zoom > 1 ? zoom : 1
-      ctx.save()
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
       const pos = getImageCoords(e)
@@ -358,8 +362,6 @@ export default function AnnotationCanvas() {
         penPointsRef.current,
         dpr
       )
-
-      ctx.restore()
     },
     [isPanning, isDrawing, activeTool, annotations, color, lineWidth, selectedAnnotationId, baseImageLoaded, clampPan, getImageCoords, zoom]
   )
