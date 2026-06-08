@@ -56,11 +56,9 @@ export default function AnnotationCanvas() {
     const nh = imageNaturalSize.height
 
     if (zoomMode === 'fit') {
-      const s = Math.min(cw / nw, ch / nh)
-      setBaseFitScale(s)
+      setBaseFitScale(Math.min(cw / nw, ch / nh))
     } else {
-      const s = Math.max(cw / nw, ch / nh)
-      setBaseFitScale(s)
+      setBaseFitScale(Math.max(cw / nw, ch / nh))
     }
   }, [imageNaturalSize, zoomMode])
 
@@ -80,13 +78,27 @@ export default function AnnotationCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !imageNaturalSize.width) return
-    canvas.width = imageNaturalSize.width
-    canvas.height = imageNaturalSize.height
+
+    const dpr = zoom > 1 ? zoom : 1
+    canvas.width = imageNaturalSize.width * dpr
+    canvas.height = imageNaturalSize.height * dpr
+
     const ctx = canvas.getContext('2d')
-    if (ctx) {
-      drawAllAnnotations(ctx, annotations, 1, baseImageLoaded ? imgRef.current || undefined : undefined, selectedAnnotationId)
+    if (!ctx) return
+
+    if (dpr > 1) {
+      ctx.scale(dpr, dpr)
     }
-  }, [annotations, imageNaturalSize, selectedAnnotationId, baseImageLoaded])
+
+    drawAllAnnotations(
+      ctx,
+      annotations,
+      1,
+      baseImageLoaded ? imgRef.current || undefined : undefined,
+      selectedAnnotationId,
+      dpr
+    )
+  }, [annotations, imageNaturalSize, selectedAnnotationId, baseImageLoaded, zoom])
 
   const clampPan = useCallback((offX: number, offY: number) => {
     const container = containerRef.current
@@ -104,6 +116,27 @@ export default function AnnotationCanvas() {
       y: Math.min(Math.max(-maxOffY, offY), maxOffY),
     }
   }, [renderedSize])
+
+  const measureTextBounds = useCallback((ann: typeof annotations[0]): { x: number; y: number; w: number; h: number } => {
+    const canvas = canvasRef.current
+    if (!canvas || !ann.text) return { x: ann.x, y: ann.y - 20, w: 100, h: 30 }
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return { x: ann.x, y: ann.y - 20, w: 100, h: 30 }
+
+    const fontSize = Math.max(ann.lineWidth * 6, 14)
+    ctx.font = `${fontSize}px "DM Sans", sans-serif`
+    const metrics = ctx.measureText(ann.text || '文字标注')
+    const textW = metrics.width
+    const textH = fontSize * 1.2
+
+    return {
+      x: ann.x,
+      y: ann.y - textH,
+      w: textW,
+      h: textH + 4,
+    }
+  }, [])
 
   useEffect(() => {
     if (!selectedAnnotationId || !containerRef.current) return
@@ -123,7 +156,8 @@ export default function AnnotationCanvas() {
       }
       annX = minX; annY = minY; annW = maxX - minX; annH = maxY - minY
     } else if (ann.type === 'text') {
-      annX = ann.x; annY = ann.y - 20; annW = 100; annH = 30
+      const bounds = measureTextBounds(ann)
+      annX = bounds.x; annY = bounds.y; annW = bounds.w; annH = bounds.h
     } else {
       annX = Math.min(ann.x, ann.x + ann.width)
       annY = Math.min(ann.y, ann.y + ann.height)
@@ -154,7 +188,7 @@ export default function AnnotationCanvas() {
       const clamped = clampPan(targetOffX, targetOffY)
       setPanOffset(clamped)
     })
-  }, [selectedAnnotationId, annotations, baseFitScale, clampPan])
+  }, [selectedAnnotationId, annotations, baseFitScale, clampPan, measureTextBounds])
 
   const handleImageLoad = useCallback(() => {
     const img = imgRef.current
@@ -190,6 +224,27 @@ export default function AnnotationCanvas() {
     }
   }, [])
 
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      setZoom((prev) => {
+        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+        const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta))
+        if (next === prev) return prev
+        if (next <= 1) {
+          setPanOffset({ x: 0, y: 0 })
+        }
+        return next
+      })
+    }
+
+    container.addEventListener('wheel', handleWheel, { passive: false })
+    return () => container.removeEventListener('wheel', handleWheel)
+  }, [])
+
   const isOverImage = useCallback((e: React.MouseEvent): boolean => {
     const container = containerRef.current
     if (!container || !imageNaturalSize.width) return false
@@ -200,35 +255,22 @@ export default function AnnotationCanvas() {
     const imgLeft = (cw - rs.width) / 2 + panOffset.x
     const imgTop = (ch - rs.height) / 2 + panOffset.y
 
-    return (
-      e.clientX - container.getBoundingClientRect().left >= imgLeft &&
-      e.clientX - container.getBoundingClientRect().left <= imgLeft + rs.width &&
-      e.clientY - container.getBoundingClientRect().top >= imgTop &&
-      e.clientY - container.getBoundingClientRect().top <= imgTop + rs.height
-    )
+    const relX = e.clientX - container.getBoundingClientRect().left
+    const relY = e.clientY - container.getBoundingClientRect().top
+
+    return relX >= imgLeft && relX <= imgLeft + rs.width && relY >= imgTop && relY <= imgTop + rs.height
   }, [imageNaturalSize, renderedSize, panOffset])
 
   const getImageCoords = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
-    const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width)
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height)
-    return { x, y }
-  }, [])
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault()
-    setZoom((prev) => {
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
-      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta))
-      if (next === prev) return prev
-      if (next <= 1) {
-        setPanOffset({ x: 0, y: 0 })
-      }
-      return next
-    })
-  }, [])
+    const dpr = zoom > 1 ? zoom : 1
+    const rect = canvas.getBoundingClientRect()
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width) / dpr
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height) / dpr
+    return { x, y }
+  }, [zoom])
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -293,13 +335,16 @@ export default function AnnotationCanvas() {
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
+      const dpr = zoom > 1 ? zoom : 1
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
       const pos = getImageCoords(e)
 
       if (activeTool === 'pen') {
         penPointsRef.current = [...penPointsRef.current, pos]
       }
 
-      drawAllAnnotations(ctx, annotations, 1, baseImageLoaded ? imgRef.current || undefined : undefined, selectedAnnotationId)
+      drawAllAnnotations(ctx, annotations, 1, baseImageLoaded ? imgRef.current || undefined : undefined, selectedAnnotationId, dpr)
       drawCurrentShape(
         ctx,
         activeTool,
@@ -308,12 +353,12 @@ export default function AnnotationCanvas() {
         pos.x,
         pos.y,
         color,
-        lineWidth,
+        lineWidth / dpr,
         penPointsRef.current,
         1
       )
     },
-    [isPanning, isDrawing, activeTool, annotations, color, lineWidth, selectedAnnotationId, baseImageLoaded, clampPan, getImageCoords]
+    [isPanning, isDrawing, activeTool, annotations, color, lineWidth, selectedAnnotationId, baseImageLoaded, clampPan, getImageCoords, zoom]
   )
 
   const handleMouseUp = useCallback(
@@ -396,7 +441,6 @@ export default function AnnotationCanvas() {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
-      onWheel={handleWheel}
     >
       <div
         className="absolute will-change-transform"

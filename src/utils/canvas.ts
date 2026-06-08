@@ -25,23 +25,25 @@ export function drawAnnotation(
   ctx: CanvasRenderingContext2D,
   annotation: Annotation,
   scale: number = 1,
-  baseImage?: HTMLImageElement
+  baseImage?: HTMLImageElement,
+  dpr: number = 1
 ) {
   ctx.save()
   ctx.scale(scale, scale)
 
-  const { type, x, y, width, height, color, lineWidth, text, points } = annotation
+  const { type, x, y, width, height, color, text, points } = annotation
+  const lw = annotation.lineWidth / dpr
 
   switch (type) {
     case 'rect':
       ctx.strokeStyle = color
-      ctx.lineWidth = lineWidth
+      ctx.lineWidth = lw
       ctx.strokeRect(x, y, width, height)
       break
 
     case 'circle': {
       ctx.strokeStyle = color
-      ctx.lineWidth = lineWidth
+      ctx.lineWidth = lw
       const cx = x + width / 2
       const cy = y + height / 2
       const rx = Math.abs(width / 2)
@@ -55,7 +57,7 @@ export function drawAnnotation(
     case 'arrow': {
       ctx.strokeStyle = color
       ctx.fillStyle = color
-      ctx.lineWidth = lineWidth
+      ctx.lineWidth = lw
       const endX = x + width
       const endY = y + height
       ctx.beginPath()
@@ -81,7 +83,7 @@ export function drawAnnotation(
 
     case 'text': {
       ctx.fillStyle = color
-      ctx.font = `${Math.max(lineWidth * 6, 14)}px "DM Sans", sans-serif`
+      ctx.font = `${Math.max(lw * 6, 14)}px "DM Sans", sans-serif`
       ctx.fillText(text || '文字标注', x, y)
       break
     }
@@ -109,7 +111,7 @@ export function drawAnnotation(
         ctx.fillRect(x, y, width, height)
       }
       ctx.strokeStyle = color
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1 / dpr
       ctx.setLineDash([4, 4])
       ctx.strokeRect(x, y, width, height)
       ctx.setLineDash([])
@@ -119,7 +121,7 @@ export function drawAnnotation(
     case 'pen': {
       if (points && points.length > 1) {
         ctx.strokeStyle = color
-        ctx.lineWidth = lineWidth
+        ctx.lineWidth = lw
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
         ctx.beginPath()
@@ -141,16 +143,17 @@ export function drawAllAnnotations(
   annotations: Annotation[],
   scale: number = 1,
   baseImage?: HTMLImageElement,
-  selectedAnnotationId?: string | null
+  selectedAnnotationId?: string | null,
+  dpr: number = 1
 ) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
   for (const ann of annotations) {
-    drawAnnotation(ctx, ann, scale, baseImage)
+    drawAnnotation(ctx, ann, scale, baseImage, dpr)
     if (selectedAnnotationId && ann.id === selectedAnnotationId) {
       ctx.save()
       ctx.scale(scale, scale)
       ctx.strokeStyle = '#ff6b35'
-      ctx.lineWidth = 2
+      ctx.lineWidth = 2 / dpr
       ctx.setLineDash([6, 4])
       const { x, y, width, height, type, points } = ann
       if (type === 'pen' && points && points.length > 1) {

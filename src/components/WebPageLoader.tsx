@@ -34,10 +34,15 @@ export default function WebPageLoader() {
 
     if (mode === 'url' && url) {
       setIframeLoaded(false)
+      iframe.srcdoc = ''
       iframe.src = url.trim()
     } else if (mode === 'html' && htmlContent) {
       setIframeLoaded(false)
+      iframe.src = 'about:blank'
       iframe.srcdoc = htmlContent
+    } else {
+      iframe.srcdoc = ''
+      iframe.src = 'about:blank'
     }
   }, [mode, url, htmlContent, setIframeLoaded])
 
