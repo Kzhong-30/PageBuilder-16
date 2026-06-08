@@ -24,13 +24,9 @@ export function clearOffscreenCache(img?: HTMLImageElement) {
 export function drawAnnotation(
   ctx: CanvasRenderingContext2D,
   annotation: Annotation,
-  scale: number = 1,
-  baseImage?: HTMLImageElement,
-  dpr: number = 1
+  dpr: number = 1,
+  baseImage?: HTMLImageElement
 ) {
-  ctx.save()
-  ctx.scale(scale, scale)
-
   const { type, x, y, width, height, color, text, points } = annotation
   const lw = annotation.lineWidth / dpr
 
@@ -134,24 +130,24 @@ export function drawAnnotation(
       break
     }
   }
-
-  ctx.restore()
 }
 
 export function drawAllAnnotations(
   ctx: CanvasRenderingContext2D,
   annotations: Annotation[],
-  scale: number = 1,
+  dpr: number = 1,
   baseImage?: HTMLImageElement,
-  selectedAnnotationId?: string | null,
-  dpr: number = 1
+  selectedAnnotationId?: string | null
 ) {
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+  ctx.restore()
+
   for (const ann of annotations) {
-    drawAnnotation(ctx, ann, scale, baseImage, dpr)
+    drawAnnotation(ctx, ann, dpr, baseImage)
     if (selectedAnnotationId && ann.id === selectedAnnotationId) {
       ctx.save()
-      ctx.scale(scale, scale)
       ctx.strokeStyle = '#ff6b35'
       ctx.lineWidth = 2 / dpr
       ctx.setLineDash([6, 4])
@@ -174,6 +170,8 @@ export function drawAllAnnotations(
   }
 }
 
+type AnnotationType = Annotation['type']
+
 export function drawCurrentShape(
   ctx: CanvasRenderingContext2D,
   type: AnnotationType,
@@ -184,21 +182,20 @@ export function drawCurrentShape(
   color: string,
   lineWidth: number,
   points: Point[],
-  scale: number = 1
+  dpr: number = 1
 ) {
-  ctx.save()
-  ctx.scale(scale, scale)
+  const lw = lineWidth / dpr
 
   switch (type) {
     case 'rect': {
       ctx.strokeStyle = color
-      ctx.lineWidth = lineWidth
+      ctx.lineWidth = lw
       ctx.strokeRect(startX, startY, currentX - startX, currentY - startY)
       break
     }
     case 'circle': {
       ctx.strokeStyle = color
-      ctx.lineWidth = lineWidth
+      ctx.lineWidth = lw
       const cx = (startX + currentX) / 2
       const cy = (startY + currentY) / 2
       const rx = Math.abs(currentX - startX) / 2
@@ -211,7 +208,7 @@ export function drawCurrentShape(
     case 'arrow': {
       ctx.strokeStyle = color
       ctx.fillStyle = color
-      ctx.lineWidth = lineWidth
+      ctx.lineWidth = lw
       ctx.beginPath()
       ctx.moveTo(startX, startY)
       ctx.lineTo(currentX, currentY)
@@ -236,7 +233,7 @@ export function drawCurrentShape(
       ctx.fillStyle = 'rgba(128,128,128,0.3)'
       ctx.fillRect(startX, startY, currentX - startX, currentY - startY)
       ctx.strokeStyle = color
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1 / dpr
       ctx.setLineDash([4, 4])
       ctx.strokeRect(startX, startY, currentX - startX, currentY - startY)
       ctx.setLineDash([])
@@ -245,7 +242,7 @@ export function drawCurrentShape(
     case 'pen': {
       if (points.length > 1) {
         ctx.strokeStyle = color
-        ctx.lineWidth = lineWidth
+        ctx.lineWidth = lw
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
         ctx.beginPath()
@@ -258,11 +255,7 @@ export function drawCurrentShape(
       break
     }
   }
-
-  ctx.restore()
 }
-
-type AnnotationType = Annotation['type']
 
 export function applyMosaic(
   imageData: ImageData,
@@ -342,9 +335,13 @@ export function exportToPng(
         }
       }
 
+      ctx.save()
+      ctx.scale(scale, scale)
       for (const ann of otherAnnotations) {
-        drawAnnotation(ctx, ann, scale)
+        drawAnnotation(ctx, ann, 1)
       }
+      ctx.restore()
+
       resolve(canvas.toDataURL('image/png'))
     }
     img.src = screenshotDataUrl

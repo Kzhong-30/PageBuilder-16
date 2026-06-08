@@ -86,18 +86,18 @@ export default function AnnotationCanvas() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    if (dpr > 1) {
-      ctx.scale(dpr, dpr)
-    }
+    ctx.save()
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     drawAllAnnotations(
       ctx,
       annotations,
-      1,
+      dpr,
       baseImageLoaded ? imgRef.current || undefined : undefined,
-      selectedAnnotationId,
-      dpr
+      selectedAnnotationId
     )
+
+    ctx.restore()
   }, [annotations, imageNaturalSize, selectedAnnotationId, baseImageLoaded, zoom])
 
   const clampPan = useCallback((offX: number, offY: number) => {
@@ -336,6 +336,7 @@ export default function AnnotationCanvas() {
       if (!ctx) return
 
       const dpr = zoom > 1 ? zoom : 1
+      ctx.save()
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
       const pos = getImageCoords(e)
@@ -344,7 +345,7 @@ export default function AnnotationCanvas() {
         penPointsRef.current = [...penPointsRef.current, pos]
       }
 
-      drawAllAnnotations(ctx, annotations, 1, baseImageLoaded ? imgRef.current || undefined : undefined, selectedAnnotationId, dpr)
+      drawAllAnnotations(ctx, annotations, dpr, baseImageLoaded ? imgRef.current || undefined : undefined, selectedAnnotationId)
       drawCurrentShape(
         ctx,
         activeTool,
@@ -353,10 +354,12 @@ export default function AnnotationCanvas() {
         pos.x,
         pos.y,
         color,
-        lineWidth / dpr,
+        lineWidth,
         penPointsRef.current,
-        1
+        dpr
       )
+
+      ctx.restore()
     },
     [isPanning, isDrawing, activeTool, annotations, color, lineWidth, selectedAnnotationId, baseImageLoaded, clampPan, getImageCoords, zoom]
   )

@@ -45,7 +45,10 @@ export default function CompareView() {
       }
     }
 
-    drawAllAnnotations(ctx, otherAnnotations, canvasScale)
+    ctx.save()
+    ctx.scale(canvasScale, canvasScale)
+    drawAllAnnotations(ctx, otherAnnotations, 1)
+    ctx.restore()
   }, [baseImage, annotations, canvasScale])
 
   return (
